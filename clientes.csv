@@ -1,4 +1,4 @@
-id_cliente;Nombre;Apellido;Direccion;Telefono;Tarjeta;Edad;Salario;Genero;id_pais
+id_cliente;nombre;apellido;direccion;telefono;tarjeta;edad;salario;genero;id_pais
 1;Vivian;Schultz;1511 Pooh Bear Lane;4608499546;1979280000000000;55;100000;F;11
 2;Natisha;Flores;3663 McDowell Street;5119315633;3144520000000000;80;40000;F;11
 3;Mary;Love;4954 Woodhill Avenue;6297761196;8728090000000000;47;100000;F;11

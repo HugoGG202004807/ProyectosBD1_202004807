@@ -2,6 +2,7 @@ const cargarmodelo = require('./routes_cargarmodelo');
 const script = require('./crear_modelo');
 const fs = require('fs');
 const oracledb = require('oracledb');
+const csv = require('csv-parser');
 
 
 module.exports = function(app){
@@ -30,12 +31,49 @@ module.exports = function(app){
       const columnas = ['ID_VENDEDOR', 'NOMBRE', 'ID_PAIS'];
       await cargarmodelo.insertarDatosDesdeCSV(req, res, 'VENDEDORES', csvFilePath, columnas);
   });
-// aun no funciona
   app.get('/cargarmodelo/clientes', async (req, res) => {
     const csvFilePath = '/home/usuario/Escritorio/bases1/ProyectosBD1_202004807/clientes.csv';
     const columnas = ['ID_CLIENTE', 'NOMBRE', 'APELLIDO', 'DIRECCION', 'TELEFONO', 'TARJETA', 'EDAD', 'SALARIO', 'GENERO', 'ID_PAIS'];
     await cargarmodelo.insertarDatosDesdeCSV(req, res, 'CLIENTES', csvFilePath, columnas);
-});
+  });
+app.get('/cargarmodelo/ordenes', async (req, res) => {
+  try {
+    const csvFilePath = '/home/usuario/Escritorio/bases1/ProyectosBD1_202004807/ordenes2.csv';
+    const columnas1 = ['ID_ORDEN', 'FECHA_ORDEN', 'ID_CLIENTE'];
+    const columnas2 = ['ID_ORDEN', 'LINEA_ORDEN', 'ID_VENDEDOR', 'ID_PRODUCTO', 'CANTIDAD'];
+
+    // Insertar datos de la tabla ORDENES
+    await cargarmodelo.insertarDatosDesdeCSV2(req, res, 'ORDENES', csvFilePath, columnas1);
+
+    // Insertar datos de la tabla DETALLES_ORDENES
+    await cargarmodelo.insertarDatosDesdeCSV2(req, res, 'DETALLES_ORDENES', csvFilePath, columnas2);
+
+    //asignaciones de llaves a las tablas
+    //await cargarmodelo.modificaciones_tablas();
+    
+
+    // Enviar una respuesta solo después de que todas las inserciones hayan sido completadas
+    res.send('¡Datos insertados exitosamente!');
+} catch (error) {
+    console.error('Error al cargar los datos:', error);
+    res.status(500).send('Error al cargar los datos.');
+}
+  });
+
+
+  app.get('/cargarmodelo/ordenes2', async (req, res) => {
+    try {
+      
+      //asignaciones de llaves a las tablas
+      await cargarmodelo.modificaciones_tablas();
+      res.send('¡Datos modificados exitosamente!');
+  } catch (error) {
+      console.error('Error al modificar datos:', error);
+      res.status(500).send('Error al modificar datos.');
+  }
+    });
+
+
 
 
 app.get('/crearmodelo', async (req, res) => {
