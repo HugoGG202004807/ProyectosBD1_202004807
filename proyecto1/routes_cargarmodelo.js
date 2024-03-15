@@ -130,7 +130,7 @@ async function modificaciones_tablas() {
             ADD CONSTRAINT DETALLES_ORDENES_PRODUCTOS_FK
             FOREIGN KEY (ID_PRODUCTO)
             REFERENCES PRODUCTOS(ID_PRODUCTO);
-            DROP TABLE ORDENES;
+            TRUNCATE TABLE ORDENES;
         `;
         
         const queryList = queries.split(';');

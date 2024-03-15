@@ -2,8 +2,8 @@ const cargarmodelo = require('./routes_cargarmodelo');
 const script = require('./crear_modelo');
 const fs = require('fs');
 const oracledb = require('oracledb');
-const csv = require('csv-parser');
-
+const consultas = require('./routes_consultas');
+const eliminar = require('./routes_eliminar')
 
 module.exports = function(app){
 
@@ -48,19 +48,13 @@ app.get('/cargarmodelo/ordenes', async (req, res) => {
     // Insertar datos de la tabla DETALLES_ORDENES
     await cargarmodelo.insertarDatosDesdeCSV2(req, res, 'DETALLES_ORDENES', csvFilePath, columnas2);
 
-    //asignaciones de llaves a las tablas
-    //await cargarmodelo.modificaciones_tablas();
-    
 
-    // Enviar una respuesta solo después de que todas las inserciones hayan sido completadas
     res.send('¡Datos insertados exitosamente!');
 } catch (error) {
     console.error('Error al cargar los datos:', error);
     res.status(500).send('Error al cargar los datos.');
 }
   });
-
-
   app.get('/cargarmodelo/ordenes2', async (req, res) => {
     try {
       
@@ -72,8 +66,6 @@ app.get('/cargarmodelo/ordenes', async (req, res) => {
       res.status(500).send('Error al modificar datos.');
   }
     });
-
-
 
 
 app.get('/crearmodelo', async (req, res) => {
@@ -110,5 +102,21 @@ app.get('/crearmodelo', async (req, res) => {
     }
 });
 
+app.get('/eliminarmodelo', async (req, res) => {
+  await eliminar.todo(req, res);
+});
+
+app.get('/borrarinfodb', async (req, res) => {
+  await eliminar.informacion(req, res);
+});
+
+
+app.get('/consulta1', async (req, res) => {
+    await consultas.consulta1(req, res);
+  });
+
+app.get('/consulta2', async (req, res) => {
+  await consultas.consulta2(req, res);
+});
 
 };
