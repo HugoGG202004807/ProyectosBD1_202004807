@@ -112,11 +112,44 @@ app.get('/borrarinfodb', async (req, res) => {
 
 
 app.get('/consulta1', async (req, res) => {
-    await consultas.consulta1(req, res);
-  });
+  await consultas.consulta1(req, res);
+});
 
 app.get('/consulta2', async (req, res) => {
   await consultas.consulta2(req, res);
 });
+
+app.get('/consulta3', async (req, res) => {
+  await consultas.consulta3(req, res);
+});
+
+app.get('/consulta4', async (req, res) => {
+  await consultas.consulta4(req, res);
+});
+
+app.get('/consulta5', async (req, res) => {
+  await consultas.consulta5(req, res);
+});
+
+app.get('/consulta6', async (req, res) => {
+  await consultas.consulta6(req, res);
+});
+
+app.get('/consulta7', async (req, res) => {
+  await consultas.consulta7(req, res);
+});
+
+app.get('/consulta8', async (req, res) => {
+  await consultas.consulta8(req, res);
+});
+
+app.get('/consulta9', async (req, res) => {
+  await consultas.consulta9(req, res);
+});
+
+app.get('/consulta10', async (req, res) => {
+  await consultas.consulta10(req, res);
+});
+
 
 };
