@@ -1,0 +1,324 @@
+--                                      CREACION DE LAS TABLAS
+
+--  TABLA CLIENTES
+
+CREATE TABLE CLIENTES (
+    ID_CLIENTE NUMBER PRIMARY KEY,
+    NOMBRE VARCHAR2(100),
+    APELLIDO VARCHAR2(100),
+    DIRECCION VARCHAR2(200),
+    TELEFONO VARCHAR2(20),
+    TARJETA VARCHAR2(20),
+    EDAD NUMBER(3,0),
+    SALARIO NUMBER(10, 2),
+    GENERO VARCHAR2(1) CHECK (GENERO IN ('M', 'F')),
+    ID_PAIS NUMBER
+);
+
+
+-- TABLA PRODUCTOS
+
+CREATE TABLE PRODUCTOS (
+    ID_PRODUCTO NUMBER PRIMARY KEY,
+    NOMBRE VARCHAR2(100),
+    PRECIO NUMBER(10,2),
+    ID_CATEGORIA NUMBER
+);
+
+-- TABLA PAISES
+
+CREATE TABLE PAISES (
+    ID_PAIS NUMBER PRIMARY KEY,
+    NOMBRE VARCHAR2(100)
+);
+
+-- TABLA CATEGORIAS
+
+CREATE TABLE CATEGORIAS (
+    ID_CATEGORIA NUMBER PRIMARY KEY,
+    NOMBRE VARCHAR2(100)
+);
+
+-- TABLAS ORDENES_DE_VENTA
+
+CREATE TABLE ORDENES (
+    ID_ORDEN NUMBER,
+    FECHA_ORDEN VARCHAR2(20),
+    ID_CLIENTE NUMBER
+);
+CREATE TABLE DETALLES_ORDENES ( 
+    LINEA_ORDEN NUMBER(10,0),
+    ID_VENDEDOR NUMBER,
+    ID_PRODUCTO NUMBER,
+    CANTIDAD NUMBER(10,0),
+    ID_ORDEN NUMBER
+);
+
+--TABLA VENDEDORES
+
+CREATE TABLE VENDEDORES (
+    ID_VENDEDOR NUMBER PRIMARY KEY,
+    NOMBRE VARCHAR2(100),
+    ID_PAIS NUMBER
+);
+
+--                                  ASIGNACION DE LLAVES FORANEAS
+    -- ALTERS
+
+ALTER TABLE VENDEDORES
+    ADD CONSTRAINT VENDEDORES_PAISES_FK
+    FOREIGN KEY (ID_PAIS)
+    REFERENCES PAISES(ID_PAIS);
+
+ALTER TABLE CLIENTES
+    ADD CONSTRAINT CLIENTES_PAISES_FK
+    FOREIGN KEY (ID_PAIS)
+    REFERENCES PAISES(ID_PAIS);
+
+ALTER TABLE PRODUCTOS
+    ADD CONSTRAINT PRODUCTOS_CATEGORIAS_FK
+    FOREIGN KEY (ID_CATEGORIA)
+    REFERENCES CATEGORIAS(ID_CATEGORIA);
+
+--                                  ELIMINACION DE TABLAS
+-- ELIMINACION DE TODO EL MODELO
+DROP TABLE DETALLES_ORDENES;
+DROP TABLE ORDENES_UNICOS;
+DROP TABLE CLIENTES;
+DROP TABLE VENDEDORES;
+DROP TABLE PAISES;
+DROP TABLE PRODUCTOS;
+DROP TABLE CATEGORIAS;
+DROP TABLE ORDENES;
+
+-- BORRAR EL CONTENIDO DE LOS MODELOS
+TRUNCATE TABLE DETALLES_ORDENES;
+TRUNCATE TABLE ORDENES_UNICOS;
+TRUNCATE TABLE CLIENTES;
+TRUNCATE TABLE VENDEDORES;
+TRUNCATE TABLE PAISES;
+TRUNCATE TABLE PRODUCTOS;
+TRUNCATE TABLE CATEGORIAS;
+
+
+--                                          CONSULTAS REALIZADAS
+-- CONSULTA1
+SELECT c.ID_CLIENTE, c.NOMBRE AS NOMBRE_CLIENTE, c.APELLIDO, p.NOMBRE AS NOMBRE_PAIS, 
+SUM(pr.PRECIO * d.CANTIDAD) AS MONTO, COUNT(c.ID_CLIENTE) AS CANTIDAD_COMPRAS
+FROM CLIENTES c
+INNER JOIN PAISES p ON c.ID_PAIS = p.ID_PAIS
+INNER JOIN ORDENES_UNICOS o ON c.ID_CLIENTE = o.ID_CLIENTE
+INNER JOIN DETALLES_ORDENES d ON o.ID_ORDEN = d.ID_ORDEN
+INNER JOIN PRODUCTOS pr ON d.ID_PRODUCTO = pr.ID_PRODUCTO
+GROUP BY c.ID_CLIENTE, c.NOMBRE, c.APELLIDO, p.NOMBRE
+ORDER BY CANTIDAD_COMPRAS DESC
+FETCH FIRST 1 ROWS ONLY
+
+-- CONSULTA2
+SELECT
+    p.ID_PRODUCTO,
+    p.NOMBRE AS NOMBRE_PRODUCTO,
+    c.NOMBRE AS CATEGORIA,
+    SUM(d.CANTIDAD) AS CANTIDAD_UNIDADES,
+    SUM(d.CANTIDAD * pr.PRECIO) AS MONTO_VENDIDO
+FROM
+    PRODUCTOS p
+JOIN
+    CATEGORIAS c ON p.ID_CATEGORIA = c.ID_CATEGORIA
+JOIN
+    DETALLES_ORDENES d ON p.ID_PRODUCTO = d.ID_PRODUCTO
+JOIN
+    ORDENES_UNICOS o ON d.ID_ORDEN = o.ID_ORDEN
+JOIN
+    PRODUCTOS pr ON d.ID_PRODUCTO = pr.ID_PRODUCTO
+GROUP BY
+    p.ID_PRODUCTO,
+    p.NOMBRE,
+    c.NOMBRE
+ORDER BY
+    SUM(d.CANTIDAD) DESC
+FETCH FIRST 1 ROW ONLY
+
+-- CONSULTA3
+SELECT
+    v.ID_VENDEDOR,
+    v.NOMBRE AS NOMBRE_VENDEDOR,
+    SUM(d.CANTIDAD * pr.PRECIO) AS MONTO_TOTAL_VENDIDO
+FROM
+    VENDEDORES v
+JOIN
+    DETALLES_ORDENES d ON v.ID_VENDEDOR = d.ID_VENDEDOR
+JOIN
+    PRODUCTOS pr ON d.ID_PRODUCTO = pr.ID_PRODUCTO
+GROUP BY
+    v.ID_VENDEDOR,
+    v.NOMBRE
+ORDER BY
+    SUM(d.CANTIDAD) DESC
+FETCH FIRST 1 ROW ONLY
+
+-- CONSULTA4
+SELECT nombre_pais, monto_total
+    FROM (
+        SELECT p.nombre AS nombre_pais,
+            SUM(prd.precio * dto.cantidad) AS monto_total
+        FROM paises p
+        INNER JOIN vendedores v ON p.id_pais = v.id_pais
+        INNER JOIN DETALLES_ORDENES dto ON v.id_vendedor = dto.id_vendedor
+        INNER JOIN productos prd ON dto.id_producto = prd.id_producto
+        GROUP BY p.nombre
+        ORDER BY SUM(dto.cantidad) DESC
+    )
+    WHERE ROWNUM <= 1
+
+    UNION ALL
+
+    SELECT nombre_pais, monto_total
+    FROM (
+        SELECT p.nombre AS nombre_pais,
+            SUM(prd.precio * dto.cantidad) AS monto_total
+        FROM paises p
+        INNER JOIN vendedores v ON p.id_pais = v.id_pais
+        INNER JOIN DETALLES_ORDENES dto ON v.id_vendedor = dto.id_vendedor
+        INNER JOIN productos prd ON dto.id_producto = prd.id_producto
+        GROUP BY p.nombre
+        ORDER BY SUM(dto.cantidad) ASC
+    )
+    WHERE ROWNUM <= 1
+
+-- CONSULTA5
+SELECT id_pais, nombre_pais, monto_total
+FROM (
+    SELECT
+        pais.ID_PAIS AS id_pais,
+        pais.NOMBRE AS nombre_pais,
+        SUM(d.CANTIDAD * pr.PRECIO) AS monto_total
+    FROM
+        PAISES pais
+    JOIN
+        CLIENTES cli ON pais.ID_PAIS = cli.ID_PAIS
+    JOIN
+        ORDENES_UNICOS ord ON cli.ID_CLIENTE = ord.ID_CLIENTE
+    JOIN
+        DETALLES_ORDENES d ON ord.ID_ORDEN = d.ID_ORDEN
+    JOIN
+        PRODUCTOS pr ON d.ID_PRODUCTO = pr.ID_PRODUCTO
+    GROUP BY
+        pais.ID_PAIS, pais.NOMBRE
+    ORDER BY
+        SUM(d.CANTIDAD) DESC
+    FETCH FIRST 5 ROW ONLY
+)
+ORDER BY
+    monto_total ASC
+
+-- CONSULTA6
+SELECT nombre_categoria, cantidad_unidades
+    FROM (
+        SELECT
+            cat.NOMBRE AS nombre_categoria,
+            SUM(det.CANTIDAD) AS cantidad_unidades
+        FROM
+            CATEGORIAS cat
+        JOIN
+            PRODUCTOS prod ON cat.ID_CATEGORIA = prod.ID_CATEGORIA
+        JOIN
+            DETALLES_ORDENES det ON prod.ID_PRODUCTO = det.ID_PRODUCTO
+        GROUP BY
+            cat.NOMBRE
+        ORDER BY
+            SUM(det.CANTIDAD) DESC
+        FETCH FIRST 1 ROW ONLY
+    ) max_compra
+    UNION ALL
+    SELECT nombre_categoria, cantidad_unidades
+    FROM (
+        SELECT
+            cat.NOMBRE AS nombre_categoria,
+            SUM(det.CANTIDAD) AS cantidad_unidades
+        FROM
+            CATEGORIAS cat
+        JOIN
+            PRODUCTOS prod ON cat.ID_CATEGORIA = prod.ID_CATEGORIA
+        JOIN
+            DETALLES_ORDENES det ON prod.ID_PRODUCTO = det.ID_PRODUCTO
+        GROUP BY
+            cat.NOMBRE
+        ORDER BY
+            SUM(det.CANTIDAD) ASC
+        FETCH FIRST 1 ROW ONLY
+    ) min_compra
+
+-- CONSULTA7
+SELECT nombre_pais, nombre_categoria, cantidad_unidades
+    FROM (
+        SELECT
+            pais.NOMBRE AS nombre_pais,
+            cat.NOMBRE AS nombre_categoria,
+            SUM(det.CANTIDAD) AS cantidad_unidades,
+            ROW_NUMBER() OVER(PARTITION BY pais.ID_PAIS ORDER BY SUM(det.CANTIDAD) DESC) AS ranking
+        FROM
+            PAISES pais
+        JOIN
+            CLIENTES cli ON pais.ID_PAIS = cli.ID_PAIS
+        JOIN
+            ORDENES_UNICOS ord ON cli.ID_CLIENTE = ord.ID_CLIENTE
+        JOIN
+            DETALLES_ORDENES det ON ord.ID_ORDEN = det.ID_ORDEN
+        JOIN
+            PRODUCTOS prod ON det.ID_PRODUCTO = prod.ID_PRODUCTO
+        JOIN
+            CATEGORIAS cat ON prod.ID_CATEGORIA = cat.ID_CATEGORIA
+        GROUP BY
+            pais.ID_PAIS, pais.NOMBRE, cat.NOMBRE
+    )
+    WHERE ranking = 1
+
+-- CONSULTA8
+SELECT TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM') AS numero_mes, 
+TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'Month') AS nombre_mes,
+SUM(det.CANTIDAD * prod.PRECIO) AS monto
+FROM ORDENES_UNICOS ord
+JOIN DETALLES_ORDENES det ON ord.ID_ORDEN = det.ID_ORDEN
+JOIN CLIENTES cli ON ord.ID_CLIENTE = cli.ID_CLIENTE
+JOIN PAISES pais ON cli.ID_PAIS = pais.ID_PAIS
+JOIN PRODUCTOS prod ON det.ID_PRODUCTO = prod.ID_PRODUCTO
+WHERE pais.NOMBRE = 'Inglaterra'
+GROUP BY TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM'), 
+            TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'Month')
+ORDER BY TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM')
+
+-- CONSULTA9
+SELECT numero_mes, monto
+    FROM (
+        SELECT TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM') AS numero_mes,
+                SUM(det.CANTIDAD * prod.PRECIO) AS monto
+        FROM ORDENES_UNICOS ord
+        JOIN DETALLES_ORDENES det ON ord.ID_ORDEN = det.ID_ORDEN
+        JOIN PRODUCTOS prod ON det.ID_PRODUCTO = prod.ID_PRODUCTO
+        GROUP BY TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM')
+        ORDER BY SUM(det.CANTIDAD * prod.PRECIO) DESC
+    )
+    WHERE ROWNUM = 1
+
+    UNION ALL
+
+    SELECT numero_mes, monto
+    FROM (
+        SELECT TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM') AS numero_mes,
+                SUM(det.CANTIDAD * prod.PRECIO) AS monto
+        FROM ORDENES_UNICOS ord
+        JOIN DETALLES_ORDENES det ON ord.ID_ORDEN = det.ID_ORDEN
+        JOIN PRODUCTOS prod ON det.ID_PRODUCTO = prod.ID_PRODUCTO
+        GROUP BY TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM')
+        ORDER BY SUM(det.CANTIDAD * prod.PRECIO) ASC
+    )
+    WHERE ROWNUM = 1
+
+-- CONSULTA10
+SELECT det.ID_PRODUCTO, prod.NOMBRE AS nombre_producto, SUM(det.CANTIDAD * prod.PRECIO) AS monto
+FROM DETALLES_ORDENES det
+JOIN PRODUCTOS prod ON det.ID_PRODUCTO = prod.ID_PRODUCTO
+JOIN CATEGORIAS cat ON prod.ID_CATEGORIA = cat.ID_CATEGORIA
+WHERE cat.NOMBRE = 'Deportes'
+GROUP BY det.ID_PRODUCTO, prod.NOMBRE

@@ -159,7 +159,6 @@ async function consulta2(req, res) {
     }
 }
 
-
 async function consulta3(req, res) {
     let connection;
     try {

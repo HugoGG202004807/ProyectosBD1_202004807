@@ -8,7 +8,7 @@ const eliminar = require('./routes_eliminar')
 module.exports = function(app){
 
   app.get('/', (req, res) => {
-      res.send('¡Hola, mundo!');
+      res.send('¡Bases de Datos 1!');
     }); 
   
     app.get('/cargarmodelo/paises', async (req, res) => {
