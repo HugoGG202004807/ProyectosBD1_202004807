@@ -534,8 +534,7 @@ async function consulta9(req, res) {
             connectString: 'localhost:1521/free'
         });
 
-        const query = `
-        SELECT numero_mes, monto
+        const query = `SELECT numero_mes, monto
         FROM (
             SELECT TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM') AS numero_mes,
                    SUM(det.CANTIDAD * prod.PRECIO) AS monto
@@ -543,12 +542,12 @@ async function consulta9(req, res) {
             JOIN DETALLES_ORDENES det ON ord.ID_ORDEN = det.ID_ORDEN
             JOIN PRODUCTOS prod ON det.ID_PRODUCTO = prod.ID_PRODUCTO
             GROUP BY TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM')
-            ORDER BY SUM(det.CANTIDAD * prod.PRECIO) DESC
+            ORDER BY SUM(det.CANTIDAD) DESC
         )
         WHERE ROWNUM = 1
-        
+
         UNION ALL
-        
+
         SELECT numero_mes, monto
         FROM (
             SELECT TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM') AS numero_mes,
@@ -557,10 +556,9 @@ async function consulta9(req, res) {
             JOIN DETALLES_ORDENES det ON ord.ID_ORDEN = det.ID_ORDEN
             JOIN PRODUCTOS prod ON det.ID_PRODUCTO = prod.ID_PRODUCTO
             GROUP BY TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM')
-            ORDER BY SUM(det.CANTIDAD * prod.PRECIO) ASC
+            ORDER BY SUM(det.CANTIDAD) ASC
         )
         WHERE ROWNUM = 1
-        
         `;
 
         const result = await connection.execute(query);
