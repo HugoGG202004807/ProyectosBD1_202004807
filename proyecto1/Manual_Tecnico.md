@@ -27,7 +27,7 @@ app.listen(port, () => {
 - consultas: Archivo diseñado para la realizacion de las consultas.
 - eliminar: Archivo destinado para la eliminación de datos de la base de datos.
 ## /crearmodelo
-- Cuando un cliente realiza una solicitud GET a esta ruta, se ejecuta una función asincrónica que realiza varias tareas:
+- Cuando un cliente realiza una solicitud GET a esta ruta, se ejecuta una función asincrónica que realiza varios queries de un string que se encuentra en el archivo crear_modelo.js:
 ```sh
 app.get('/crearmodelo', async (req, res) => {
     try {
@@ -40,6 +40,7 @@ app.get('/crearmodelo', async (req, res) => {
           // logica del codigo
         });
 ```
+
 - Eliminación de comentarios del script SQL: Se elimina cualquier comentario del script SQL para evitar problemas al ejecutar las consultas.
 
 - Establecimiento de la conexión a la base de datos Oracle: Se establece una conexión a la base de datos Oracle utilizando las credenciales proporcionadas (usuario, contraseña y cadena de conexión).
@@ -52,6 +53,64 @@ app.get('/crearmodelo', async (req, res) => {
 
 - Respuesta al cliente: Si todas las operaciones se realizan correctamente, se envía una respuesta al cliente indicando que el modelo ha sido creado exitosamente. En caso de error, se maneja el error y se envía una respuesta de error al cliente con un código de estado 500 (Error del servidor).
 
+# Archivo crear_modelo.js
+- Aqui se encuentra una variable de tipo string que almacena cada uno de los queries que seran utilizados para la creacion de las tablas y tambien las asignaciones de las llaves que utilizan.
+
+![image](https://github.com/HugoGG202004807/ProyectosBD1_202004807/assets/81279833/0069b5d1-b3fa-4674-b198-5a121bfebc1f)
+
+## Alters para la asignacion de llaves foraneas
+- Se asignó una clave foránea a la tabla de "vendedores" procedente de la tabla de "paises", ya que un vendedor puede tener una ubicación en un país específico, y varios vendedores pueden estar ubicados en el mismo país.
+
+- Se asignó una clave foránea a la tabla de "clientes" procedente de la tabla de "paises", ya que un cliente puede estar ubicado en un país específico, y varios clientes pueden residir en el mismo país.
+
+- Se asignó una clave foránea a la tabla de "productos" procedente de la tabla de "categorias", ya que un producto puede pertenecer a una categoría específica, y varias productos pueden estar categorizados bajo la misma categoría.
+
+```sh
+ALTER TABLE VENDEDORES
+    ADD CONSTRAINT VENDEDORES_PAISES_FK
+    FOREIGN KEY (ID_PAIS)
+    REFERENCES PAISES(ID_PAIS);
+
+ALTER TABLE CLIENTES
+    ADD CONSTRAINT CLIENTES_PAISES_FK
+    FOREIGN KEY (ID_PAIS)
+    REFERENCES PAISES(ID_PAIS);
+
+ALTER TABLE PRODUCTOS
+    ADD CONSTRAINT PRODUCTOS_CATEGORIAS_FK
+    FOREIGN KEY (ID_CATEGORIA)
+    REFERENCES CATEGORIAS(ID_CATEGORIA);
+
+```
+- Esta asignacion de llaves foraneas ocurre despues de la carga de los datos como se vera mas adelante.
+- se le asigno a detalles_ordenes la llave foranea de ordenes_unicos para el manejo de las dos tablas que anteriormente formaban la tabla de ordenes.
+- se le asigno a la tabla de ordenes_unicos la llave foranea de clientes ya que un cliente puede tener una o varias ordenes pero una orden puede estar destinada a un solo cliente.
+- se le asigno a la tabla de detalles_ordenes la llave foranea de vendedores ya que un vendedor puede tener una o varias ordenes pero una orden puede estar destinada a un solo vendedor.
+- se le asigno a la tabla detalles_ordenes la llave foranea de productos ya que un producto puede tener una o varias ordenes pero una orden puede estar destinada a un solo producto.
+  
+```sh
+ALTER TABLE ORDENES_UNICOS
+ADD CONSTRAINT pk_orden PRIMARY KEY (ID_ORDEN);
+ALTER TABLE DETALLES_ORDENES
+ADD CONSTRAINT DETALLES_ORDENES_ORDENES_UNICOS_FK FOREIGN KEY (ID_ORDEN)
+REFERENCES ORDENES_UNICOS(ID_ORDEN);
+ALTER TABLE ORDENES_UNICOS
+ADD CONSTRAINT ORDENES_UNICOS_CLIENTES_FK
+FOREIGN KEY (ID_CLIENTE)
+REFERENCES CLIENTES(ID_CLIENTE);
+ALTER TABLE DETALLES_ORDENES
+ADD CONSTRAINT DETALLES_ORDENES_VENDEDORES_FK
+FOREIGN KEY (ID_VENDEDOR)
+REFERENCES VENDEDORES(ID_VENDEDOR);
+ALTER TABLE DETALLES_ORDENES
+ADD CONSTRAINT DETALLES_ORDENES_PRODUCTOS_FK
+FOREIGN KEY (ID_PRODUCTO)
+REFERENCES PRODUCTOS(ID_PRODUCTO);
+
+```
+
+
+- 
 
 # cargar modelo
 - Para la carga de contendio de todo el modelo se fue dividido en diferentes sub-rutas para especificar que contenido seria cargado para la tabla.
