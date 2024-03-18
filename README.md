@@ -156,9 +156,257 @@ TRUNCATE TABLE CATEGORIAS;
   
 ![image](https://github.com/HugoGG202004807/ProyectosBD1_202004807/assets/81279833/04dfd766-4333-4d71-96b5-1d676cb017ef)
 
+## consulta1
+Mostrar el cliente que más ha comprado. Ya que se espera el cliente que mas ha comprado se ordenaron los datos por el numero de compras realizadas y no por el monto total.
+```sh
+SELECT c.ID_CLIENTE, c.NOMBRE AS NOMBRE_CLIENTE, c.APELLIDO, p.NOMBRE AS NOMBRE_PAIS, 
+SUM(pr.PRECIO * d.CANTIDAD) AS MONTO, COUNT(c.ID_CLIENTE) AS CANTIDAD_COMPRAS
+FROM CLIENTES c
+INNER JOIN PAISES p ON c.ID_PAIS = p.ID_PAIS
+INNER JOIN ORDENES_UNICOS o ON c.ID_CLIENTE = o.ID_CLIENTE
+INNER JOIN DETALLES_ORDENES d ON o.ID_ORDEN = d.ID_ORDEN
+INNER JOIN PRODUCTOS pr ON d.ID_PRODUCTO = pr.ID_PRODUCTO
+GROUP BY c.ID_CLIENTE, c.NOMBRE, c.APELLIDO, p.NOMBRE
+ORDER BY CANTIDAD_COMPRAS DESC
+FETCH FIRST 1 ROWS ONLY
+```
+## consulta2
+- Mostrar el producto más y menos comprado.
+```sh
+SELECT
+    p.ID_PRODUCTO,
+    p.NOMBRE AS NOMBRE_PRODUCTO,
+    c.NOMBRE AS CATEGORIA,
+    SUM(d.CANTIDAD) AS CANTIDAD_UNIDADES,
+    SUM(d.CANTIDAD * pr.PRECIO) AS MONTO_VENDIDO
+FROM
+    PRODUCTOS p
+JOIN
+    CATEGORIAS c ON p.ID_CATEGORIA = c.ID_CATEGORIA
+JOIN
+    DETALLES_ORDENES d ON p.ID_PRODUCTO = d.ID_PRODUCTO
+JOIN
+    ORDENES_UNICOS o ON d.ID_ORDEN = o.ID_ORDEN
+JOIN
+    PRODUCTOS pr ON d.ID_PRODUCTO = pr.ID_PRODUCTO
+GROUP BY
+    p.ID_PRODUCTO,
+    p.NOMBRE,
+    c.NOMBRE
+ORDER BY
+    SUM(d.CANTIDAD) DESC
+FETCH FIRST 1 ROW ONLY
+```
 
+## consulta3
+Mostrar a la persona que más ha vendido.
+```sh
+SELECT
+    v.ID_VENDEDOR,
+    v.NOMBRE AS NOMBRE_VENDEDOR,
+    SUM(d.CANTIDAD * pr.PRECIO) AS MONTO_TOTAL_VENDIDO
+FROM
+    VENDEDORES v
+JOIN
+    DETALLES_ORDENES d ON v.ID_VENDEDOR = d.ID_VENDEDOR
+JOIN
+    PRODUCTOS pr ON d.ID_PRODUCTO = pr.ID_PRODUCTO
+GROUP BY
+    v.ID_VENDEDOR,
+    v.NOMBRE
+ORDER BY
+    SUM(d.CANTIDAD) DESC
+FETCH FIRST 1 ROW ONLY
+```
 
+## consulta4
+Mostrar el país que más y menos ha vendido.
+```sh
+SELECT nombre_pais, monto_total
+FROM (
+    SELECT p.nombre AS nombre_pais,
+        SUM(prd.precio * dto.cantidad) AS monto_total
+    FROM paises p
+    INNER JOIN vendedores v ON p.id_pais = v.id_pais
+    INNER JOIN DETALLES_ORDENES dto ON v.id_vendedor = dto.id_vendedor
+    INNER JOIN productos prd ON dto.id_producto = prd.id_producto
+    GROUP BY p.nombre
+    ORDER BY SUM(dto.cantidad) DESC
+)
+WHERE ROWNUM <= 1
 
+UNION ALL
+
+SELECT nombre_pais, monto_total
+FROM (
+    SELECT p.nombre AS nombre_pais,
+        SUM(prd.precio * dto.cantidad) AS monto_total
+    FROM paises p
+    INNER JOIN vendedores v ON p.id_pais = v.id_pais
+    INNER JOIN DETALLES_ORDENES dto ON v.id_vendedor = dto.id_vendedor
+    INNER JOIN productos prd ON dto.id_producto = prd.id_producto
+    GROUP BY p.nombre
+    ORDER BY SUM(dto.cantidad) ASC
+)
+WHERE ROWNUM <= 1
+```
+
+## consulta5
+Top 5 de países que más han comprado en orden ascendente.
+```sh
+SELECT id_pais, nombre_pais, monto_total
+FROM (
+SELECT
+    pais.ID_PAIS AS id_pais,
+    pais.NOMBRE AS nombre_pais,
+    SUM(d.CANTIDAD * pr.PRECIO) AS monto_total
+FROM
+    PAISES pais
+JOIN
+    CLIENTES cli ON pais.ID_PAIS = cli.ID_PAIS
+JOIN
+    ORDENES_UNICOS ord ON cli.ID_CLIENTE = ord.ID_CLIENTE
+JOIN
+    DETALLES_ORDENES d ON ord.ID_ORDEN = d.ID_ORDEN
+JOIN
+    PRODUCTOS pr ON d.ID_PRODUCTO = pr.ID_PRODUCTO
+GROUP BY
+    pais.ID_PAIS, pais.NOMBRE
+ORDER BY
+    SUM(d.CANTIDAD) DESC
+FETCH FIRST 5 ROW ONLY
+)
+ORDER BY
+monto_total ASC
+```
+
+## consulta6
+Mostrar la categoría que más y menos se ha comprado en una sola consulta.
+```sh
+SELECT nombre_categoria, cantidad_unidades
+FROM (
+    SELECT
+        cat.NOMBRE AS nombre_categoria,
+        SUM(det.CANTIDAD) AS cantidad_unidades
+    FROM
+        CATEGORIAS cat
+    JOIN
+        PRODUCTOS prod ON cat.ID_CATEGORIA = prod.ID_CATEGORIA
+    JOIN
+        DETALLES_ORDENES det ON prod.ID_PRODUCTO = det.ID_PRODUCTO
+    GROUP BY
+        cat.NOMBRE
+    ORDER BY
+        SUM(det.CANTIDAD) DESC
+    FETCH FIRST 1 ROW ONLY
+) max_compra
+UNION ALL
+SELECT nombre_categoria, cantidad_unidades
+FROM (
+    SELECT
+        cat.NOMBRE AS nombre_categoria,
+        SUM(det.CANTIDAD) AS cantidad_unidades
+    FROM
+        CATEGORIAS cat
+    JOIN
+        PRODUCTOS prod ON cat.ID_CATEGORIA = prod.ID_CATEGORIA
+    JOIN
+        DETALLES_ORDENES det ON prod.ID_PRODUCTO = det.ID_PRODUCTO
+    GROUP BY
+        cat.NOMBRE
+    ORDER BY
+        SUM(det.CANTIDAD) ASC
+    FETCH FIRST 1 ROW ONLY
+) min_compra
+
+```
+
+## consulta7
+Mostrar la categoría más comprada por cada país.
+```sh
+SELECT nombre_pais, nombre_categoria, cantidad_unidades
+FROM (
+    SELECT
+        pais.NOMBRE AS nombre_pais,
+        cat.NOMBRE AS nombre_categoria,
+        SUM(det.CANTIDAD) AS cantidad_unidades,
+        ROW_NUMBER() OVER(PARTITION BY pais.ID_PAIS ORDER BY SUM(det.CANTIDAD) DESC) AS ranking
+    FROM
+        PAISES pais
+    JOIN
+        CLIENTES cli ON pais.ID_PAIS = cli.ID_PAIS
+    JOIN
+        ORDENES_UNICOS ord ON cli.ID_CLIENTE = ord.ID_CLIENTE
+    JOIN
+        DETALLES_ORDENES det ON ord.ID_ORDEN = det.ID_ORDEN
+    JOIN
+        PRODUCTOS prod ON det.ID_PRODUCTO = prod.ID_PRODUCTO
+    JOIN
+        CATEGORIAS cat ON prod.ID_CATEGORIA = cat.ID_CATEGORIA
+    GROUP BY
+        pais.ID_PAIS, pais.NOMBRE, cat.NOMBRE
+)
+WHERE ranking = 1
+```
+
+## consulta8
+Mostrar las ventas por mes de Inglaterra.
+```sh
+SELECT TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM') AS numero_mes,
+TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'Month') AS nombre_mes,
+SUM(det.CANTIDAD * prod.PRECIO) AS monto
+FROM VENDEDORES vend
+JOIN PAISES pais ON vend.ID_PAIS = pais.ID_PAIS
+JOIN DETALLES_ORDENES det ON vend.ID_VENDEDOR=det.ID_VENDEDOR
+JOIN PRODUCTOS prod ON det.ID_PRODUCTO=prod.ID_PRODUCTO
+JOIN ORDENES_UNICOS ord ON det.ID_ORDEN= ord.ID_ORDEN
+
+WHERE pais.NOMBRE = 'Inglaterra'
+GROUP BY TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM'),
+        TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'Month')
+ORDER BY TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM')
+```
+
+## consulta9
+Mostrar el mes con más y menos ventas.
+```sh
+SELECT numero_mes, monto
+FROM (
+    SELECT TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM') AS numero_mes,
+           SUM(det.CANTIDAD * prod.PRECIO) AS monto
+    FROM ORDENES_UNICOS ord
+    JOIN DETALLES_ORDENES det ON ord.ID_ORDEN = det.ID_ORDEN
+    JOIN PRODUCTOS prod ON det.ID_PRODUCTO = prod.ID_PRODUCTO
+    GROUP BY TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM')
+    ORDER BY SUM(det.CANTIDAD) DESC
+)
+WHERE ROWNUM = 1
+
+UNION ALL
+
+SELECT numero_mes, monto
+FROM (
+    SELECT TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM') AS numero_mes,
+           SUM(det.CANTIDAD * prod.PRECIO) AS monto
+    FROM ORDENES_UNICOS ord
+    JOIN DETALLES_ORDENES det ON ord.ID_ORDEN = det.ID_ORDEN
+    JOIN PRODUCTOS prod ON det.ID_PRODUCTO = prod.ID_PRODUCTO
+    GROUP BY TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM')
+    ORDER BY SUM(det.CANTIDAD) ASC
+)
+WHERE ROWNUM = 1
+```
+
+## consulta10
+Mostrar las ventas de cada producto de la categoría deportes.
+```sh
+SELECT det.ID_PRODUCTO, prod.NOMBRE AS nombre_producto, SUM(det.CANTIDAD * prod.PRECIO) AS monto
+FROM DETALLES_ORDENES det
+JOIN PRODUCTOS prod ON det.ID_PRODUCTO = prod.ID_PRODUCTO
+JOIN CATEGORIAS cat ON prod.ID_CATEGORIA = cat.ID_CATEGORIA
+WHERE cat.NOMBRE = 'Deportes'
+GROUP BY det.ID_PRODUCTO, prod.NOMBRE
+```
 
 
 
