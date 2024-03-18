@@ -488,18 +488,19 @@ async function consulta8(req, res) {
         });
 
         const query = `
-            SELECT TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM') AS numero_mes, 
-                   TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'Month') AS nombre_mes,
-                   SUM(det.CANTIDAD * prod.PRECIO) AS monto
-            FROM ORDENES_UNICOS ord
-            JOIN DETALLES_ORDENES det ON ord.ID_ORDEN = det.ID_ORDEN
-            JOIN CLIENTES cli ON ord.ID_CLIENTE = cli.ID_CLIENTE
-            JOIN PAISES pais ON cli.ID_PAIS = pais.ID_PAIS
-            JOIN PRODUCTOS prod ON det.ID_PRODUCTO = prod.ID_PRODUCTO
-            WHERE pais.NOMBRE = 'Inglaterra'
-            GROUP BY TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM'), 
-                     TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'Month')
-            ORDER BY TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM')
+        SELECT TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM') AS numero_mes,
+        TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'Month') AS nombre_mes,
+        SUM(det.CANTIDAD * prod.PRECIO) AS monto
+        FROM VENDEDORES vend
+        JOIN PAISES pais ON vend.ID_PAIS = pais.ID_PAIS
+        JOIN DETALLES_ORDENES det ON vend.ID_VENDEDOR=det.ID_VENDEDOR
+        JOIN PRODUCTOS prod ON det.ID_PRODUCTO=prod.ID_PRODUCTO
+        JOIN ORDENES_UNICOS ord ON det.ID_ORDEN= ord.ID_ORDEN
+
+        WHERE pais.NOMBRE = 'Inglaterra'
+        GROUP BY TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM'),
+                TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'Month')
+        ORDER BY TO_CHAR(TO_DATE(FECHA_ORDEN, 'DD-MM-YYYY'), 'MM')
         `;
 
         const result = await connection.execute(query);
