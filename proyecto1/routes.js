@@ -57,8 +57,6 @@ app.get('/cargarmodelo/ordenes', async (req, res) => {
   });
   app.get('/cargarmodelo/ordenes2', async (req, res) => {
     try {
-      
-      //asignaciones de llaves a las tablas
       await cargarmodelo.modificaciones_tablas();
       res.send('¡Datos modificados exitosamente!');
   } catch (error) {
@@ -93,7 +91,6 @@ app.get('/crearmodelo', async (req, res) => {
         // Cerrar la conexión a la base de datos
         await connection.close();
 
-        // Respuesta exitosa
         res.send('¡Modelo creado exitosamente!');
     } catch (error) {
         // Manejar cualquier error que ocurra durante la ejecución de las consultas SQL
