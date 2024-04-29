@@ -1,6 +1,8 @@
+-- ***************************************      PROCEDIMIENTOS       ***********************************************
+
 -- REGISTRAR CLIENTES
 CREATE OR REPLACE PROCEDURE registrarCliente(
-    p_ID_CLIENTE  IN INTEGER,
+    p_ID_CLIENTE  IN VARCHAR2, -- Cambio de INTEGER a VARCHAR2
     p_NOMBRE IN VARCHAR2,
     p_APELLIDO IN VARCHAR2,
     p_TELEFONO IN VARCHAR2,
@@ -11,24 +13,33 @@ CREATE OR REPLACE PROCEDURE registrarCliente(
 )
 AS
     v_Count INTEGER;
+    v_Num_Cliente NUMBER; -- Variable para almacenar el ID del cliente convertido a número
 BEGIN
+    -- Validar si el ID del cliente contiene caracteres no numéricos
+    BEGIN
+        v_Num_Cliente := TO_NUMBER(p_ID_CLIENTE);
+    EXCEPTION
+        WHEN VALUE_ERROR THEN
+            RAISE_APPLICATION_ERROR(-20008, 'El ID del cliente debe ser un número entero.');
+    END;
+
     -- Validación de letras para Nombre y Apellidos
-    IF NOT REGEXP_LIKE(p_NOMBRE, '^[A-Za-zñÑ ]+$') THEN
+    IF NOT REGEXP_LIKE(p_NOMBRE, '^[A-ZÁÉÍÓÚÑa-záéíóúñ ]+$') THEN
         RAISE_APPLICATION_ERROR(-20001, 'El nombre solo puede contener letras y espacios.');
     END IF;
 
-    IF NOT REGEXP_LIKE(p_APELLIDO, '^[A-Za-zñÑ ]+$') THEN
+    IF NOT REGEXP_LIKE(p_APELLIDO, '^[A-ZÁÉÍÓÚÑa-záéíóúñ ]+$') THEN
         RAISE_APPLICATION_ERROR(-20002, 'Los apellidos solo pueden contener letras y espacios.');
     END IF;
 
     -- Validación del formato del teléfono
-    IF NOT REGEXP_LIKE(p_TELEFONO, '^[0-9]{8}(-[0-9]{8})*$') THEN
+    IF NOT REGEXP_LIKE(p_TELEFONO, '^((\d{8}-)*(\d{11}-)*|(\d{11}-)*(\d{8}-)*)|\d{8}|\d{11}$') THEN
         RAISE_APPLICATION_ERROR(-20003, 'El formato del teléfono no es válido.');
     END IF;
 
     -- Validación del formato del correo electrónico
     IF NOT REGEXP_LIKE(p_CORREO, '^([a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4})(\|([a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}))*$') THEN
-    RAISE_APPLICATION_ERROR(-20004, 'El formato del correo electrónico no es válido.');
+        RAISE_APPLICATION_ERROR(-20004, 'El formato del correo electrónico no es válido.');
     END IF;
 
     -- Validar disponibilidad del usuario
@@ -81,14 +92,21 @@ CREATE OR REPLACE PROCEDURE registrarTipoCliente(
     p_nombre IN VARCHAR2,
     p_descripcion IN VARCHAR2
 ) AS
-    v_max_id INTEGER;
+    v_id_exist INTEGER;
 BEGIN
-    -- Obtener el máximo ID actualmente en la tabla
-    SELECT NVL(MAX(ID_TIPO_CLIENTE), 0) INTO v_max_id FROM TIPO_CLIENTE;
+    -- Verificar si el ID proporcionado ya existe en la tabla TIPO_CLIENTE
+    SELECT COUNT(*)
+    INTO v_id_exist
+    FROM TIPO_CLIENTE
+    WHERE ID_TIPO_CLIENTE = p_id_tipo;
 
-    -- Verificar si el ID proporcionado sigue la secuencia
-    IF p_id_tipo <= v_max_id THEN
-        RAISE_APPLICATION_ERROR(-20002, 'El ID proporcionado no sigue la secuencia');
+    IF v_id_exist > 0 THEN
+        RAISE_APPLICATION_ERROR(-20002, 'El ID proporcionado ya existe');
+    END IF;
+
+    -- Validar que el ID sea un número entero positivo
+    IF p_id_tipo <= 0 THEN
+        RAISE_APPLICATION_ERROR(-20003, 'El ID debe ser un número entero positivo');
     END IF;
 
     -- Validar que la descripción sólo contenga letras
@@ -101,9 +119,12 @@ BEGIN
     VALUES (p_id_tipo, p_nombre, p_descripcion);
 
 EXCEPTION
+
     WHEN OTHERS THEN
-        RAISE_APPLICATION_ERROR(-20003, 'Error al registrar el tipo de cliente');
+        RAISE_APPLICATION_ERROR(-20007, 'Error al registrar el tipo de cliente: ' || SQLERRM);
 END registrarTipoCliente;
+
+
 
 -- REGISTRAR CUENTA
 CREATE OR REPLACE PROCEDURE registrarCuenta (
@@ -150,24 +171,35 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20004, 'El cliente especificado no existe.');
     END IF;
 
+    -- Validar si ya existe una cuenta con el mismo ID
+    SELECT COUNT(*)
+    INTO v_Count
+    FROM CUENTA
+    WHERE ID_CUENTA = p_ID_CUENTA;
+
+    IF v_Count > 0 THEN
+        RAISE_APPLICATION_ERROR(-20005, 'Ya existe otra cuenta con el mismo ID.');
+    END IF;
+
     IF p_FECHA_APERTURA IS NULL THEN
-    v_FECHA_APERTURA := SYSDATE; -- Si p_FECHA_APERTURA es nulo, asignamos SYSDATE
-ELSE
-    -- Intentar convertir la cadena de fecha con el formato esperado 'DD/MM/YYYY HH24:MI:SS'
-    BEGIN
-        v_FECHA_APERTURA := TO_DATE(p_FECHA_APERTURA, 'DD/MM/YYYY HH24:MI:SS');
-    EXCEPTION
-        -- En caso de error de conversión, intentar con otro formato 'MM/DD/YYYY HH24:MI:SS'
-        WHEN OTHERS THEN
-            BEGIN
-                v_FECHA_APERTURA := TO_DATE(p_FECHA_APERTURA, 'MM/DD/YYYY HH24:MI:SS');
-            EXCEPTION
-                -- Si el segundo intento también falla, lanzar un error
-                WHEN OTHERS THEN
-                    RAISE_APPLICATION_ERROR(-20007, 'Formato de fecha no válido.');
-            END;
-    END;
-END IF;
+        v_FECHA_APERTURA := SYSDATE; -- Si p_FECHA_APERTURA es nulo, asignamos SYSDATE
+    ELSE
+        -- Intentar convertir la cadena de fecha con el formato esperado 'DD/MM/YYYY HH24:MI:SS'
+        BEGIN
+            v_FECHA_APERTURA := TO_DATE(p_FECHA_APERTURA, 'DD/MM/YYYY HH24:MI:SS');
+        EXCEPTION
+            -- En caso de error de conversión, intentar con otro formato 'MM/DD/YYYY HH24:MI:SS'
+            WHEN OTHERS THEN
+                BEGIN
+                    v_FECHA_APERTURA := TO_DATE(p_FECHA_APERTURA, 'MM/DD/YYYY HH24:MI:SS');
+                EXCEPTION
+                    -- Si el segundo intento también falla, lanzar un error
+                    WHEN OTHERS THEN
+                        RAISE_APPLICATION_ERROR(-20007, 'Formato de fecha no válido.');
+                END;
+        END;
+    END IF;
+
     -- Insertar la cuenta en la base de datos
     INSERT INTO CUENTA (ID_CUENTA, MONTO_APERTURA, SALDO_CUENTA, DESCRIPCION, FECHA_APERTURA, OTROS_DETALLES, ID_TIPO_CUENTA, ID_CLIENTE)
     VALUES (p_ID_CUENTA, p_MONTO_APERTURA, p_SALDO_CUENTA, p_DESCRIPCION,v_FECHA_APERTURA, p_OTROS_DETALLES, p_TIPO_CUENTA, p_ID_CLIENTE);
@@ -175,11 +207,12 @@ END IF;
     COMMIT;
 EXCEPTION
     WHEN VALUE_ERROR THEN
-        RAISE_APPLICATION_ERROR(-20006, 'Se exedio el tamaño permitido para registrar los datos');
+        RAISE_APPLICATION_ERROR(-20006, 'Se excedió el tamaño permitido para registrar los datos');
     WHEN OTHERS THEN
         ROLLBACK;
-        RAISE_APPLICATION_ERROR(-20005, 'Error al insertar: ' || SQLCODE || ' - ' || SQLERRM);
+        RAISE_APPLICATION_ERROR(-20008, 'Error al insertar: ' || SQLCODE || ' - ' || SQLERRM);
 END;
+
 
 CREATE OR REPLACE PROCEDURE registrarTipoCuenta(
     p_codigo IN INTEGER DEFAULT NULL,
@@ -193,6 +226,16 @@ BEGIN
         v_codigo := p_codigo;
     ELSE
         SELECT COALESCE(MAX(ID_TIPO_CUENTA), 0) + 1 INTO v_codigo FROM Tipo_Cuenta;
+    END IF;
+
+    -- Validar que el nombre no esté vacío
+    IF p_nombre IS NULL OR p_nombre = '' THEN
+        RAISE_APPLICATION_ERROR(-20004, 'El nombre no puede estar vacío.');
+    END IF;
+
+    -- Validar que la descripción no esté vacía
+    IF p_descripcion IS NULL OR p_descripcion = '' THEN
+        RAISE_APPLICATION_ERROR(-20005, 'La descripción no puede estar vacía.');
     END IF;
 
     -- Validar el nombre y la descripción
@@ -215,6 +258,8 @@ EXCEPTION
         RAISE_APPLICATION_ERROR(-20003, 'Error al registrar el tipo de cuenta: ' || SQLERRM);
 END registrarTipoCuenta;
 
+
+
 CREATE OR REPLACE PROCEDURE crearProductoServicio (
     p_codigo_producto_servicio IN INTEGER,
     p_tipo IN NUMBER,
@@ -234,8 +279,13 @@ BEGIN
     END IF;
 
     -- Validar que el costo sea obligatorio si el tipo es servicio
-    IF p_tipo = 1 AND p_costo IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20003, 'El costo es obligatorio para un servicio.');
+    IF p_tipo = 1 AND (p_costo IS NULL OR p_costo <= 0) THEN
+        RAISE_APPLICATION_ERROR(-20003, 'El costo es obligatorio y debe ser mayor que cero para un servicio.');
+    END IF;
+
+    -- Validar que si es de tipo 2 (producto), el precio sea 0
+    IF p_tipo = 2 AND p_costo <> 0 THEN
+        RAISE_APPLICATION_ERROR(-20006, 'El precio para un producto debe ser 0.');
     END IF;
 
     -- Validar que la descripción no esté vacía
@@ -265,18 +315,28 @@ CREATE OR REPLACE PROCEDURE realizarCompra (
 AS
     v_tipo_producto_servicio INTEGER;
     v_fecha DATE;
+    v_compra_count INTEGER;
 BEGIN
     -- Validar que el id_compra sea positivo
     IF p_id_compra <= 0 THEN
         RAISE_APPLICATION_ERROR(-20001, 'El ID de la compra debe ser un valor positivo.');
     END IF;
 
-    -- Si la fecha es nula, autocompletar con la fecha de hoy
+    -- Verificar si el ID de la compra ya existe
+    SELECT COUNT(*)
+    INTO v_compra_count
+    FROM COMPRAS
+    WHERE ID_COMPRA = p_id_compra;
 
-    IF p_FECHA IS NULL THEN
-        v_FECHA := SYSDATE;
+    IF v_compra_count > 0 THEN
+        RAISE_APPLICATION_ERROR(-20002, 'El ID de la compra ya existe.');
+    END IF;
+
+    -- Si la fecha es nula, autocompletar con la fecha de hoy
+    IF p_fecha IS NULL THEN
+        v_fecha := SYSDATE;
     ELSE
-        v_FECHA := TO_DATE(p_FECHA, 'DD/MM/YYYY');
+        v_fecha := TO_DATE(p_fecha, 'DD/MM/YYYY');
     END IF;
 
     -- Validar que exista el cliente
@@ -320,6 +380,7 @@ BEGIN
     END;
 END;
 
+
 CREATE OR REPLACE PROCEDURE realizarDeposito (
     p_id_deposito IN INTEGER,
     p_fecha IN VARCHAR2,
@@ -336,6 +397,16 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20001, 'El ID del depósito debe ser un valor positivo.');
     END IF;
 
+    -- Verificar si el ID del depósito ya existe
+    SELECT COUNT(*)
+    INTO v_count
+    FROM DEPOSITO
+    WHERE ID_DEPOSITO = p_id_deposito;
+
+    IF v_count > 0 THEN
+        RAISE_APPLICATION_ERROR(-20002, 'El ID del depósito ya existe.');
+    END IF;
+
     -- Si la fecha es nula, autocompletar con la fecha de hoy
     IF p_FECHA IS NULL THEN
         v_FECHA := SYSDATE;
@@ -350,12 +421,12 @@ BEGIN
     WHERE ID_CLIENTE = p_ID_CLIENTE;
 
     IF v_Count = 0 THEN
-        RAISE_APPLICATION_ERROR(-20002, 'El cliente especificado no existe.');
+        RAISE_APPLICATION_ERROR(-20003, 'El cliente especificado no existe.');
     END IF;
 
     -- Validar que el monto del depósito sea mayor que cero
     IF p_monto <= 0 THEN
-        RAISE_APPLICATION_ERROR(-20003, 'El monto del depósito debe ser mayor que cero.');
+        RAISE_APPLICATION_ERROR(-20004, 'El monto del depósito debe ser mayor que cero.');
     END IF;
 
     -- Insertar el depósito en la base de datos
@@ -366,7 +437,7 @@ BEGIN
 EXCEPTION
     WHEN OTHERS THEN
         ROLLBACK;
-        RAISE_APPLICATION_ERROR(-20004, 'Error al realizar el depósito: ' || SQLCODE || ' - ' || SQLERRM);
+        RAISE_APPLICATION_ERROR(-20005, 'Error al realizar el depósito: ' || SQLCODE || ' - ' || SQLERRM);
 END;
 
 
@@ -381,9 +452,19 @@ AS
     v_count INTEGER;
     v_fecha DATE;
 BEGIN
-    -- Validar que el id_deposito sea positivo
+    -- Validar que el id_debito sea positivo
     IF p_id_debito <= 0 THEN
-        RAISE_APPLICATION_ERROR(-20001, 'El ID del debito debe ser un valor positivo.');
+        RAISE_APPLICATION_ERROR(-20001, 'El ID del débito debe ser un valor positivo.');
+    END IF;
+
+    -- Verificar si el ID del débito ya existe
+    SELECT COUNT(*)
+    INTO v_count
+    FROM DEBITO
+    WHERE ID_DEBITO = p_id_debito;
+
+    IF v_count > 0 THEN
+        RAISE_APPLICATION_ERROR(-20002, 'El ID del débito ya existe.');
     END IF;
 
     -- Si la fecha es nula, autocompletar con la fecha de hoy
@@ -400,15 +481,15 @@ BEGIN
     WHERE ID_CLIENTE = p_ID_CLIENTE;
 
     IF v_Count = 0 THEN
-        RAISE_APPLICATION_ERROR(-20002, 'El cliente especificado no existe.');
+        RAISE_APPLICATION_ERROR(-20003, 'El cliente especificado no existe.');
     END IF;
 
-    -- Validar que el monto del depósito sea mayor que cero
+    -- Validar que el monto del débito sea mayor que cero
     IF p_monto <= 0 THEN
-        RAISE_APPLICATION_ERROR(-20003, 'El monto del depósito debe ser mayor que cero.');
+        RAISE_APPLICATION_ERROR(-20004, 'El monto del débito debe ser mayor que cero.');
     END IF;
 
-    -- Insertar el depósito en la base de datos
+    -- Insertar el débito en la base de datos
     INSERT INTO DEBITO (ID_DEBITO, FECHA_DEBITO, MONTO, OTROS_DETALLES, ID_CLIENTE)
     VALUES (p_id_debito, v_fecha, p_monto, p_otros_detalles, p_id_cliente);
 
@@ -416,8 +497,9 @@ BEGIN
 EXCEPTION
     WHEN OTHERS THEN
         ROLLBACK;
-        RAISE_APPLICATION_ERROR(-20004, 'Error al realizar el debito: ' || SQLCODE || ' - ' || SQLERRM);
+        RAISE_APPLICATION_ERROR(-20005, 'Error al realizar el débito: ' || SQLCODE || ' - ' || SQLERRM);
 END;
+
 
 CREATE OR REPLACE PROCEDURE asignarTransaccion (
     p_id_transaccion IN INTEGER,
@@ -428,13 +510,28 @@ CREATE OR REPLACE PROCEDURE asignarTransaccion (
     p_no_cuenta IN NUMBER
 )
 AS
-    v_count INTEGER;
+    v_id_servicio_compra INTEGER DEFAULT NULL;
+    v_id_servicio_deposito INTEGER DEFAULT NULL;
+    v_id_servicio_debito INTEGER DEFAULT NULL;
     v_saldo_cuenta NUMBER;
     v_FECHA DATE;
-    v_count_compras INTEGER;
-    v_count_deposito INTEGER;
-    v_count_debito INTEGER;
+    v_count INTEGER;
 BEGIN
+    -- Validar que el ID de la transacción sea un número continuo
+    IF p_id_transaccion IS NULL OR p_id_transaccion <= 0 THEN
+        RAISE_APPLICATION_ERROR(-20001, 'El ID de la transacción debe ser un número positivo.');
+    END IF;
+
+    -- Verificar si el ID de la transacción ya existe
+    SELECT COUNT(*)
+    INTO v_count
+    FROM TRANSACCION
+    WHERE ID_TRANSACCION = p_id_transaccion;
+
+    IF v_count > 0 THEN
+        RAISE_APPLICATION_ERROR(-20002, 'El ID de la transacción ya existe.');
+    END IF;
+
     -- Convertir la fecha si se proporciona
     IF p_fecha IS NULL THEN
         v_FECHA := SYSDATE;
@@ -443,49 +540,57 @@ BEGIN
             v_FECHA := TO_DATE(p_fecha, 'DD/MM/YYYY HH24:MI:SS');
         EXCEPTION
             WHEN OTHERS THEN
-                RAISE_APPLICATION_ERROR(-20009, 'Formato de fecha no válido.');
+                RAISE_APPLICATION_ERROR(-20003, 'Formato de fecha no válido.');
         END;
     END IF;
 
-    -- Validar que el ID de la transacción sea un número continuo
-    IF p_id_transaccion IS NULL OR p_id_transaccion <= 0 THEN
-        RAISE_APPLICATION_ERROR(-20001, 'El ID de la transacción debe ser un número positivo.');
-    END IF;
-
-   -- Validar que exista el tipo de transacción
+    -- Validar que exista el tipo de transacción
     SELECT COUNT(*)
     INTO v_count
     FROM TIPO_TRANSACCION
     WHERE ID_TIPO_TRANSACCION = p_id_tipo_transaccion;
 
     IF v_count = 0 THEN
-        RAISE_APPLICATION_ERROR(-20002, 'El tipo de transacción especificado no existe.');
+        RAISE_APPLICATION_ERROR(-20004, 'El tipo de transacción especificado no existe.');
     END IF;
 
-    -- Validar que exista el registro correspondiente a la transacción
-    IF p_id_servicio IS NOT NULL THEN
-        -- Verificar si el p_id_servicio existe en la tabla COMPRAS
-        SELECT COUNT(*)
-        INTO v_count_compras
-        FROM COMPRAS
-        WHERE ID_COMPRA = p_id_servicio;
+    -- Validar que exista el registro correspondiente a la transacción en COMPRAS
+    SELECT COUNT(*)
+    INTO v_count
+    FROM COMPRAS
+    WHERE ID_COMPRA = p_id_servicio;
 
-        -- Verificar si el p_id_servicio existe en la tabla DEPOSITO
+    IF v_count > 0 THEN
+        v_id_servicio_compra := p_id_servicio;
+    END IF;
+
+    -- Validar que exista el registro correspondiente a la transacción en DEPOSITO
+    IF v_id_servicio_compra IS NULL THEN
         SELECT COUNT(*)
-        INTO v_count_deposito
+        INTO v_count
         FROM DEPOSITO
         WHERE ID_DEPOSITO = p_id_servicio;
 
-        -- Verificar si el p_id_servicio existe en la tabla DEBITO
+        IF v_count > 0 THEN
+            v_id_servicio_deposito := p_id_servicio;
+        END IF;
+    END IF;
+
+    -- Validar que exista el registro correspondiente a la transacción en DEBITO
+    IF v_id_servicio_compra IS NULL AND v_id_servicio_deposito IS NULL THEN
         SELECT COUNT(*)
-        INTO v_count_debito
+        INTO v_count
         FROM DEBITO
         WHERE ID_DEBITO = p_id_servicio;
 
-        -- Si ninguna tabla contiene el p_id_servicio, lanzar un error
-        IF v_count_compras = 0 AND v_count_deposito = 0 AND v_count_debito = 0 THEN
-            RAISE_APPLICATION_ERROR(-20003, 'La compra/deposito/servicio especificada no existe.');
+        IF v_count > 0 THEN
+            v_id_servicio_debito := p_id_servicio;
         END IF;
+    END IF;
+
+    -- Si ninguna tabla contiene el p_id_servicio, lanzar un error
+    IF v_id_servicio_compra IS NULL AND v_id_servicio_deposito IS NULL AND v_id_servicio_debito IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20005, 'La compra/deposito/servicio especificada no existe.');
     END IF;
 
     -- Validar que la cuenta corresponda al cliente
@@ -495,33 +600,20 @@ BEGIN
     WHERE ID_CUENTA = p_no_cuenta;
 
     IF v_count = 0 THEN
-        RAISE_APPLICATION_ERROR(-20004, 'La cuenta especificada no corresponde a ningún cliente.');
-    END IF;
-
-    -- Verificar el saldo suficiente solo si se especifica un servicio y el tipo de transacción es compra o débito
-    IF p_id_servicio IS NOT NULL AND (p_id_tipo_transaccion = 1 OR p_id_tipo_transaccion = 3) THEN
-        SELECT SALDO_CUENTA INTO v_saldo_cuenta FROM CUENTA WHERE ID_CUENTA = p_no_cuenta;
-        IF v_saldo_cuenta < 0 THEN
-            RAISE_APPLICATION_ERROR(-20008, 'La cuenta tiene saldo negativo.');
-        END IF;
-
-        SELECT IMPORTE INTO v_count FROM COMPRAS WHERE ID_COMPRA = p_id_servicio;
-
-        IF v_saldo_cuenta < v_count THEN
-            RAISE_APPLICATION_ERROR(-20008, 'La cuenta no tiene saldo suficiente para realizar esta transacción.');
-        END IF;
+        RAISE_APPLICATION_ERROR(-20006, 'La cuenta especificada no corresponde a ningún cliente.');
     END IF;
 
     -- Insertar la transacción en la base de datos
-    INSERT INTO TRANSACCION (ID_TRANSACCION, FECHA_TRANSACCION,OTROS_DETALLES,ID_TIPO_TRANSACCION, ID_SERVICIO, ID_CUENTA)
-    VALUES (p_id_transaccion, v_FECHA, p_otros_detalles, p_id_tipo_transaccion, p_id_servicio, p_no_cuenta);
+    INSERT INTO TRANSACCION (ID_TRANSACCION, FECHA_TRANSACCION, OTROS_DETALLES, ID_TIPO_TRANSACCION, ID_SERVICIO_COMPRA, ID_SERVICIO_DEBITO, ID_SERVICIO_DEPOSITO, ID_CUENTA)
+    VALUES (p_id_transaccion, v_FECHA, p_otros_detalles, p_id_tipo_transaccion, v_id_servicio_compra, v_id_servicio_debito, v_id_servicio_deposito, p_no_cuenta);
 
     COMMIT;
 EXCEPTION
     WHEN OTHERS THEN
         ROLLBACK;
-        RAISE_APPLICATION_ERROR(-20010, 'Error al asignar la transacción: ' || SQLCODE || ' - ' || SQLERRM);
+        RAISE_APPLICATION_ERROR(-20007, 'Error al asignar la transacción: ' || SQLCODE || ' - ' || SQLERRM);
 END;
+
 
 CREATE OR REPLACE PROCEDURE registrarTipoTransaccion (
     p_codigo_transaccion IN INTEGER,
@@ -530,18 +622,38 @@ CREATE OR REPLACE PROCEDURE registrarTipoTransaccion (
 )
 AS
     v_max_id INTEGER;
+    v_count INTEGER;
 BEGIN
     -- Validar que el código de transacción sea un número positivo
     IF p_codigo_transaccion <= 0 THEN
         RAISE_APPLICATION_ERROR(-20001, 'El código de transacción debe ser un número positivo.');
     END IF;
 
+    -- Validar que el nombre y la descripción no estén vacíos
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE_APPLICATION_ERROR(-20004, 'El nombre del tipo de transacción no puede estar vacío.');
+    END IF;
+
+    IF p_descripcion IS NULL OR TRIM(p_descripcion) = '' THEN
+        RAISE_APPLICATION_ERROR(-20005, 'La descripción del tipo de transacción no puede estar vacía.');
+    END IF;
+
+    -- Validar que el código de transacción sea único
+    SELECT COUNT(*)
+    INTO v_count
+    FROM TIPO_TRANSACCION
+    WHERE ID_TIPO_TRANSACCION = p_codigo_transaccion;
+
+    IF v_count > 0 THEN
+        RAISE_APPLICATION_ERROR(-20002, 'El código de transacción ya existe.');
+    END IF;
+
     -- Obtener el máximo ID actualmente en la tabla
     SELECT NVL(MAX(ID_TIPO_TRANSACCION), 0) INTO v_max_id FROM TIPO_TRANSACCION;
 
-    -- Validar que el código de transacción sea único y consecutivo
+    -- Validar que el código de transacción sea consecutivo
     IF p_codigo_transaccion <= v_max_id THEN
-        RAISE_APPLICATION_ERROR(-20002, 'El código de transacción no sigue un orden incremental.');
+        RAISE_APPLICATION_ERROR(-20003, 'El código de transacción no sigue un orden incremental.');
     END IF;
 
     -- Insertar el tipo de transacción en la base de datos
@@ -552,6 +664,6 @@ BEGIN
 EXCEPTION
     WHEN OTHERS THEN
         ROLLBACK;
-        RAISE_APPLICATION_ERROR(-20003, 'Error al registrar el tipo de transacción: ' || SQLCODE || ' - ' || SQLERRM);
+        RAISE_APPLICATION_ERROR(-20006, 'Error al registrar el tipo de transacción: ' || SQLCODE || ' - ' || SQLERRM);
 END;
 
